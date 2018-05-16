@@ -29,3 +29,6 @@ mkdir build
 cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j
+
+cd ..
+./Examples/Monocular/unik4690 Vocabulary/ORBvoc.txt Examples/Monocular/unik4690.yaml

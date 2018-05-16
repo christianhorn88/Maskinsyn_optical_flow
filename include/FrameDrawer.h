@@ -47,6 +47,8 @@ public:
 
     // Draw last processed frame.
     cv::Mat DrawFrame();
+    // Draw Optical Flow frame.
+    cv::Mat DrawFrameOptFlow();
 
 protected:
 
@@ -54,6 +56,7 @@ protected:
 
     // Info of the frame to be drawn
     cv::Mat mIm;
+    cv::Mat mIm2;
     int N;
     vector<cv::KeyPoint> mvCurrentKeys;
     vector<bool> mvbMap, mvbVO;

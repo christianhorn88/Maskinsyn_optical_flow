@@ -68,7 +68,7 @@ src/KeyFrameDatabase.cc
 src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
-)
+    )
 
 target_link_libraries(${PROJECT_NAME}
 ${OpenCV_LIBS}
@@ -111,3 +111,6 @@ add_executable(mono_euroc
 Examples/Monocular/mono_euroc.cc)
 target_link_libraries(mono_euroc ${PROJECT_NAME})
 
+add_executable(unik4690
+Examples/Monocular/unik4690.cc)
+target_link_libraries(unik4690 ${PROJECT_NAME})
