@@ -23,6 +23,8 @@
 
 #include <mutex>
 
+#include "ransac_estimator.cpp"
+
 namespace ORB_SLAM2 {
 
     Viewer::Viewer(System *pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking,
@@ -95,12 +97,19 @@ namespace ORB_SLAM2 {
       std::array<int, 8> hog;
       hog.fill(0);
       int hog_index[8] = {0, 45, 90, 135, 180, 225, 270, 315};
-      double hog_scale = 0.005;
+      double hog_scale = 0.01;
+      double ransac_scale = 50;
       int phi = 0;
       int i = 0;
 
       cv::Mat ims;
       cv::Mat orginal;
+
+      //cv::Size frameSize(static_cast<int>(mImageWidth), static_cast<int>(mImageHeight));
+      //cv::Size frameSizeMask(static_cast<int>(mImageWidth/10), static_cast<int>(mImageHeight/10));
+      //cv::VideoWriter videoOF("out_OF.avi",CV_FOURCC('P','I','M','1'),30,frameSize, true);
+      //cv::VideoWriter videoRansac1("out_RANSAC1.avi",CV_FOURCC('P','I','M','1'),20,frameSizeMask, false);
+      //cv::VideoWriter videoRansac2("out_RANSAC2.avi",CV_FOURCC('P','I','M','1'),20,frameSizeMask, false);
 
       while (1) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -162,15 +171,16 @@ namespace ORB_SLAM2 {
 
 
         hog.fill(0);
-        // By y += 5, x += 5 you can specify the grid
-        for (int y = 0; y < orginal.rows; y += 5) {
-          for (int x = 0; x < orginal.cols; x += 5) {
-            // get the flow from y, x position * 10 for better visibility
-            const cv::Point2f flowatxy = flow.at<cv::Point2f>(y, x) * 10;
-            // draw line at flow direction
-            cv::line(orginal, cv::Point(x, y), cv::Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)),
-                     cv::Scalar(255, 0, 0));
+        // Tegn gradientvektorer på orginal bildet
+        for (int y = 0; y < orginal.rows; y += 20) {
+          for (int x = 0; x < orginal.cols; x += 20) {
+            // * 2 for synlighet
+            const cv::Point2f flowatxy = flow.at<cv::Point2f>(y, x) * 2;
+            // Tegn vektor for gradient
+            cv::arrowedLine(orginal, cv::Point(x, y), cv::Point(cvRound(x + flowatxy.x), cvRound(y + flowatxy.y)),
+                            cv::Scalar(255, 0, 0),2);
 
+            // Summer HOG for viste gradienter
             if (flowatxy.y != 0) { phi = atan(flowatxy.x / flowatxy.y) * 180 / 3.14159; }
             else {
               phi = atan((flowatxy.x + 1) / (flowatxy.y + 1)) * 180 / 3.14159;
@@ -187,41 +197,59 @@ namespace ORB_SLAM2 {
             else if (phi > 90) { i = 2; }
             else if (phi > 45) { i = 1; } else { i = 0; }
             hog[i] += sqrt(flowatxy.x * flowatxy.x + flowatxy.y * flowatxy.y);
-
-
-            // draw initial point
-            //cv::circle(orginal, cv::Point(x, y), 1, cv::Scalar(0, 0, 0), -1);
-            //TODO  DONE kalkuler vektorene om til retning og lengde og del inn i HOG  (0 45 90 135 180 225 270 315)
-            //TODO  DONE slik at vi kan se trenden i scenens bevegelse. Et bevegende objekt vil da trolig skille seg ut i HOG'en hvis det beveger seg i en annen retning
-
-            //TODO Hvis objektet beveger seg i samme retning som kameraet, må vi se på differansen i vektorstørrelsene og kompensere for avstand.
-            //TODO Kan vi bruke orientasjonen fra SLAM til å kompensere for avstand??
-
-            //TODO Siden ORB SLAM sliter ved rotsjon, kan vi bruke optical flow til å forutsi rene rotsjoner. Da vil vel alle vektorene være like store? noe de ikke vil være ved translasjon?
           }
         }
 
         // Skriver ut HOG for alle HOG_index-verdier
-        for (int j = 0; j < 8; j += 1) {
-          cv::line(orginal, cv::Point(orginal.cols / 2, orginal.rows / 2),
+        /*for (int j = 0; j < 8; j += 1) {
+          cv::arrowedLine(orginal, cv::Point(orginal.cols / 2, orginal.rows / 2),
                    cv::Point((orginal.cols / 2) + cos(hog_index[j] * 3.14159 / 180 + 22.5) * hog[j] * hog_scale,
                              (orginal.rows / 2) + sin(hog_index[j] * 3.14159 / 180 + 22.5) * hog[j] * hog_scale),
-                   cv::Scalar(0, 0, 0), 10);
-        }
+                   cv::Scalar(0, 255, 0), 5,8,0,0.3);
+        }*/
 
-        // TODO Bruke RANSAC til å fjerne uteliggere i optical-flow gridet. Først for hovedretningen av gradienter.
-        // TODO Og så kjøre RANSAC kun på uteliggerne for å finne en evt. gradientretning til et bevegende objekt.
-        // TODO Bruke least squares av gradientstørrelsene for å vekte inn høye gradienter slik at ikkedetekterte bevegelser (som vegg) ikke passer RANSAC modellen?
-        // TODO Vi kunne brukt
+        // Kjøre RANSAC for å finne scenen
+        RansacEstimator estimator1(0.99,2.5f,1,3.0f,10);
+        RansacEstimate estimate1 = estimator1.estimate(flow);
 
 
-        // TODO Finn bevegelse som skiller seg ut fra scenen. segmenter ut forskjellige verdier av gradienter i bildet.
-        // TODO bruke K-means? Kanskje ved å finne de to eller tre dominerende gradientretningene i bildet,
-        // TODO gå igjennom gradientgridet i oppdelte områder (f.eks 20x20 pix.) og finne gjennomsnittlig retning for området.
-        // TODO bruke K-means med utgangspunkt i de to maxima i forskjellige retninger og slå sammen til to områder. Vise resultat som rektangler i bildet.
-        //cv::rectangle();
+        // Skriver ut vektor fra første RANSAC
+        cv::arrowedLine(orginal, cv::Point(orginal.cols / 2, orginal.rows / 2),
+                   cv::Point((orginal.cols / 2) + estimate1.best_vector(0) * ransac_scale, (orginal.rows / 2) + estimate1.best_vector(1) * ransac_scale),
+                   cv::Scalar(0, 0, 255), 5,8,0,0.3);
+
+
+        // Kjøre RANSAC for å finne objektet
+        RansacEstimator estimator2(0.99,0.9f,0.7,2.0f,10);
+        RansacEstimate estimate2 = estimator2.estimate_with_mask(flow,estimate1.is_inler_mat);
+
+
+        /*for (int y = 0; y <= (estimate1.is_inler_mat.rows-1); y += 1) {
+          for (int x = 0; x <= (estimate1.is_inler_mat.cols - 1); x += 1) {
+            if (estimate1.is_inler_mat.at<char>(y,x) == 0) {
+              cv::line(orginal, cv::Point(x*10, y*10),
+                       cv::Point(x*10 + 1, y*10 + 1),
+                       cv::Scalar(0, 0, 255), 2);
+            }
+          }
+        }*/
+
+
+
+
+        // Skriver ut inneliggere fra første RANSAC
+        cv::namedWindow("ORB-SLAM2: RANSAC 1 Frame",CV_WINDOW_FREERATIO);
+        cv::imshow("ORB-SLAM2: RANSAC 1 Frame", estimate1.is_inler_mat);
+
+        // Skriver ut inneliggere fra andre RANSAC
+        cv::namedWindow("ORB-SLAM2: RANSAC 2 Frame",CV_WINDOW_FREERATIO);
+        cv::imshow("ORB-SLAM2: RANSAC 2 Frame", estimate2.is_inler_mat);
 
         cv::imshow("ORB-SLAM2: OF Frame", orginal);
+
+        //videoOF.write(orginal);
+        //videoRansac1.write(estimate1.is_inler_mat);
+        //videoRansac2.write(estimate2.is_inler_mat);
 
         ims = grayIm;
 
