@@ -17,7 +17,7 @@ int main(int argc, char** argv)
 
 
   // Connect to the camera
-  constexpr int cam_id = 1;
+  constexpr int cam_id = 0;
   cv::VideoCapture cap{cam_id};
   if (!cap.isOpened())
   { throw std::runtime_error{"Could not open camera " + std::to_string(cam_id)}; }

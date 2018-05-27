@@ -37,54 +37,54 @@ FrameDrawer::FrameDrawer(Map* pMap):mpMap(pMap)
 
 }
 
-cv::Mat FrameDrawer::DrawFrameOptFlow()
-{
-    cv::Mat im;
-    vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
-    vector<int> vMatches; // Initialization: correspondeces with reference keypoints
-    vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
-    vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
-    int state; // Tracking state
-
-    //Copy variables within scoped mutex
+    cv::Mat FrameDrawer::DrawFrameOptFlow()
     {
-        unique_lock<mutex> lock(mMutex);
+        cv::Mat im;
+        vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
+        vector<int> vMatches; // Initialization: correspondeces with reference keypoints
+        vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
+        vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
+        int state; // Tracking state
 
-        state=mState;
-        if(mState==Tracking::SYSTEM_NOT_READY)
-            mState=Tracking::NO_IMAGES_YET;
+        //Copy variables within scoped mutex
+        {
+            unique_lock<mutex> lock(mMutex);
 
-        mIm.copyTo(im);
+            state=mState;
+            if(mState==Tracking::SYSTEM_NOT_READY)
+                mState=Tracking::NO_IMAGES_YET;
+
+            mIm.copyTo(im);
 
 
             vCurrentKeys = mvCurrentKeys;
             vIniKeys = mvIniKeys;
             vMatches = mvIniMatches;
 
-    } // destroy scoped mutex -> release mutex
+        } // destroy scoped mutex -> release mutex
 
-    if(im.channels()<3) //this should be always true
-        cvtColor(im,im,CV_GRAY2BGR);
+        if(im.channels()<3) //this should be always true
+            cvtColor(im,im,CV_GRAY2BGR);
 
 
-    //Draw
-    if(1)//state==Tracking::NOT_INITIALIZED) //INITIALIZING
-    {
-        for(unsigned int i=0; i<vMatches.size(); i++)
+        //Draw
+        if(1)//state==Tracking::NOT_INITIALIZED) //INITIALIZING
         {
-            if(vMatches[i]>=0)
+            for(unsigned int i=0; i<vMatches.size(); i++)
             {
+                if(vMatches[i]>=0)
+                {
 //                cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
 //                         cv::Scalar(0,255,0));
 
-              //cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt, cv::Scalar(0,255,0));
+                    //cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt, cv::Scalar(0,255,0));
+                }
             }
         }
+
+
+        return im;  //WithInfo;
     }
-
-
-    return im;  //WithInfo;
-}
 
 cv::Mat FrameDrawer::DrawFrame()
 {
